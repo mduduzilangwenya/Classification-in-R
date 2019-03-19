@@ -4,8 +4,9 @@ author: "Ran Dou, Mduduzi Langwenya, Kimo Li, Siyan Lin, Muhammad Furqan Shaikh,
 date: "03/09/2019"
 output: html_document
 ---
+
 ### Load the packages
-```{r}
+```{r, message=FALSE, warning=FALSE}
 rm(list=ls())
 library(tidyverse)
 library(readr)
@@ -67,7 +68,6 @@ impute <-function(a, a.impute){
   ifelse(a$SkinThickness == 0, round(a.impute, 0), a$SkinThickness)
 }
 diabetes$newSkin <- impute(diabetes, pred.2)
-
 ```
 
 ```{r}
@@ -87,9 +87,10 @@ test.df = subset(diabetes,randOrder > .8 * nrow(diabetes))
 
 ```{r, fig.width=6}
 # plot the correlation matrix visual
-train.df$Outcome <- as.numeric(train.df$Outcome)
-train.df$Pregnancies <- as.numeric(train.df$Pregnancies)
-cor <- cor(train.df)
+corr.df <- train.df
+corr.df$Outcome <- as.numeric(corr.df$Outcome)
+corr.df$Pregnancies <- as.numeric(corr.df$Pregnancies)
+cor <- cor(corr.df)
 col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
 corrplot(cor, method="color", col=col(200),  
          type="upper", order="hclust", 
@@ -106,6 +107,10 @@ corrplot(cor, method="color", col=col(200),
 train.df$Outcome <- as.factor(train.df$Outcome)
 train.df$Pregnancies <- as.factor(train.df$Pregnancies)
 ```
+
+################################################################################################### 
+
+# Logistic Regression
 
 ```{r}
 ### Forward Step-wise
@@ -159,6 +164,89 @@ c <- ggplot(model1_data, aes(index, .std.resid, color = Outcome)) +
   theme
 c
 ```
+
+################################################################################################### 
+
+# Classification Tree
+
+```{r}
+set.seed(1)
+library(rpart)
+library(rattle)
+library(rpart.plot)
+library(RColorBrewer)
+```
+
+```{r}
+tree <- rpart(Outcome ~., train.df, method = "class")
+fancyRpartPlot(tree)
+```
+
+```{r}
+tree <- rpart(Survived ~ ., train, method = "class", control = rpart.control(cp=0.00001))
+# Draw the complex tree
+fancyRpartPlot(tree)
+# Prune the tree: pruned
+pruned <- prune(tree, cp=0.01)
+# Draw pruned
+fancyRpartPlot(pruned)
+```
+
+```{r}
+table(pred=tree.pred, true=test.df$Outcome)
+printcp(tree)
+# get index of CP with lowest xerror
+tree.best <- which.min(tree$cptable[,"xerror"])
+# get its value
+cp <- tree$cptable[tree.best, "CP"]
+cp
+plotcp(tree)
+```
+
+```{r}
+#prune tree
+tree.pruned <- prune(tree,cp)
+#plot tree
+fancyRpartPlot(tree.pruned)
+```
+
+```{r}
+tree_i <- rpart(spam ~ ., train, method = "class", parms = list(split = "information"))
+pred_i <- predict(tree_i, test, type = "class")
+conf_i <- table(test$spam, pred_i)
+acc_i <- sum(diag(conf_i)) / sum(conf_i)
+```
+
+```{r}
+tree.pred <- predict(tree, test.df, type="class")
+tree.conf <- table(test.df$Outcome, tree.pred)
+sum(diag(tree.conf))/sum(tree.conf)
+```
+
+```{r}
+evaluation <- function(model, data, atype) {
+  cat("\nConfusion matrix:\n")
+  prediction = predict(model, data, type=atype)
+  xtab = table(prediction, data$Outcome)
+  print(xtab)
+  cat("\nEvaluation:\n\n")
+  accuracy = sum(prediction == data$Outcome)/length(data$Outcome)
+  precision = xtab[1,1]/sum(xtab[,1])
+  recall = xtab[1,1]/sum(xtab[1,])
+  f = 2 * (precision * recall) / (precision + recall)
+  cat(paste("Accuracy:\t", format(accuracy, digits=2), "\n",sep=" "))
+  cat(paste("Precision:\t", format(precision, digits=2), "\n",sep=" "))
+  cat(paste("Recall:\t\t", format(recall, digits=2), "\n",sep=" "))
+  cat(paste("F-measure:\t", format(f, digits=2), "\n",sep=" "))
+}
+evaluation(tree, test.df, "class")
+```
+
+
+
+
+
+
 
 
 
