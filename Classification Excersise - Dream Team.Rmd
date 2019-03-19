@@ -20,6 +20,7 @@ library(leaps)
 library(corrplot)
 library(knitr)
 library(broom)
+library(caret)
 ```
 
 ### I. Data cleaning and impution
@@ -158,6 +159,10 @@ test_roc <- roc(test.df$Outcome ~ test_prob, plot = TRUE, print.auc = TRUE) # 0.
 model1_data <- augment(dia.lm.step_for) %>% 
   mutate(index = 1:n()) %>%
   mutate(Outcome = ifelse(Outcome == "1", "0", "1"))
+### Create theme for plots
+theme <- theme_test(base_family = "Times New Roman") + theme(plot.title = element_text(hjust = 0.5), 
+         legend.position = "bottom", panel.grid.minor = element_blank(), axis.ticks.x = element_blank(),
+         axis.ticks.y = element_blank(), panel.grid.major = element_blank())
 c <- ggplot(model1_data, aes(index, .std.resid, color = Outcome)) + 
   geom_point(stat = "identity") +
   labs(title = "Standardized Deviance Residuals", y = "Residual Std", x ="Residuals") +
@@ -242,7 +247,34 @@ evaluation <- function(model, data, atype) {
 evaluation(tree, test.df, "class")
 ```
 
+########################################################################################
 
+### KNN
+
+```{r}
+# make dummies
+seg.flg.num <- model.matrix(~., data = diabetes)
+seg.flg.num <- seg.flg.num [,-1]
+
+# scaling the data
+scaled_data <- scale(seg.flg.num)
+scaled_data <- as.data.frame(scaled_data) 
+
+randOrder = order(runif(nrow(scaled_data)))
+train.df = subset(diabetes,randOrder < .8 * nrow(scaled_data))
+test.df = subset(diabetes,randOrder > .8 * nrow(scaled_data))
+
+# initialize a data frame with two columns: k, and accuracy.
+accuracy.df <- data.frame(k = seq(1, 14, 1), accuracy = rep(0, 14))
+test.df$Outcome <- as.factor(test.df$Outcome)
+
+# compute knn for different k on validation.
+for(i in 1:14) {
+  knn.pred <- knn(train.df,test.df, train.df$Outcome,k = i)
+  accuracy.df[i, 2] <- confusionMatrix(knn.pred, test.df$Outcome)$overall[1]
+}
+accuracy.df
+```
 
 
 
