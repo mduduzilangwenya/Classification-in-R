@@ -7,18 +7,14 @@ output: html_document
 
 ### Load the packages
 ```{r, message=FALSE, warning=FALSE}
-rm(list=ls())
-library(tidyverse)
-library(readr)
+
+rm(list = ls(all = TRUE))
 library(tidyverse)
 library(forecast)
 library(leaps)
 library(pROC)
-library(ggplot2)
 library(reshape)
-library(leaps)
 library(corrplot)
-library(knitr)
 library(broom)
 ```
 
@@ -52,6 +48,7 @@ impute <-function(a, a.impute){
          ifelse(a$Insulin == 0, round(a.impute, 0), a$Insulin)
 }
 diabetes$newInsu <- impute(diabetes, pred.1)
+rm( insu.lm, insu.lm.null, insu.lm.step_both, sum_both, lm.data)
 ```
 
 ###### 2) Skinthickness 
@@ -68,6 +65,8 @@ impute <-function(a, a.impute){
   ifelse(a$SkinThickness == 0, round(a.impute, 0), a$SkinThickness)
 }
 diabetes$newSkin <- impute(diabetes, pred.2)
+
+rm(skin.lm.null, skin.lm, skin.lm.step_both, sum_both_skin, lm2.data, pred.2,diabetes1)
 ```
 
 ```{r}
@@ -75,6 +74,10 @@ diabetes$newSkin <- impute(diabetes, pred.2)
 # CHANGE DATA TYPE
 diabetes$Outcome <- as.factor(diabetes$Outcome)
 diabetes$Pregnancies <- as.factor(diabetes$Pregnancies)
+diabetes$Insulin <- NULL
+diabetes$SkinThickness <- NULL
+diabetes$newSkin <- NULL
+
 
 # divide data into train and test set
 set.seed(1)
@@ -115,53 +118,58 @@ train.df$Pregnancies <- as.factor(train.df$Pregnancies)
 ```{r}
 ### Forward Step-wise
 # create model with no predictors for bottom of search range
-dia.lm.null <- glm(Outcome~1, data = train.df, family = binomial)
-dia.lm <- glm(Outcome~., data = train.df, family = binomial)
-# use step() to run forward selection
-dia.lm.step_for <- step(dia.lm.null,   
-                    scope=list(lower=dia.lm.null, upper=dia.lm), direction = "forward")
-sum_for <- summary(dia.lm.step_for) 
+nothing <- glm(Outcome~1, data = train.df, family = binomial)
+fullmod <- glm(Outcome~., data = train.df, family = binomial)
 
 # Backward Step-wise
-dia.lm.step_back <- step(dia.lm, direction = "backward")
-sum_back <- summary(dia.lm.step_back) 
+backwards <- step(fullmod, trace =0); sum_back <- summary(backwards) 
+
+#  forward selection
+forward<-step(nothing,list(lower=formula(nothing), upper=formula(fullmod)), direction = "forward", trace = 0)
+sum_for <- summary(forward) 
 
 # Both Direction Step-wise
-dia.lm.step_both <- step(dia.lm, direction = "both")
-sum_both <- summary(dia.lm.step_both) 
+both <- step(fullmod, scope = list(lower=formula(nothing),upper=formula(fullmod)), direction="both",trace=0)
+sum_both <- summary(both) 
 
-# search
-search <- regsubsets(Outcome ~ ., data = train.df, nbest = 1, 	nvmax = dim(train.df)[2], method = "exhaustive")
-sum_sear <-summary(search)
-sum_sear$which;
-sum_sear$rsq;
-sum_sear$adjr2;
-sum_sear$Cp;
-
-# comparison 
-# same models with different methods
-sum_for$coefficients
-sum_back$coefficients
-sum_both$coefficients
-
-# best model with aic 536.4962
+# best model with aic
 sum_for$aic
 
-# Prediction on test data and accuracy test (73.1%)
-tst_pred <- ifelse(predict(dia.lm.step_for, newdata = test.df, type = "response") > 0.5, "Yes", "No")
-tst_tab <- table(predicted = tst_pred, actual = test.df$Outcome); sum(diag(tst_tab))/sum(tst_tab)
-test_prob <- predict(dia.lm.step_for, newdata = test.df, type = "response")
+
+or <-round(exp(sum_for$coef),4);or
+```
+
+```{r, message=FALSE}
+#CONFUSION MATRIX 
+#load caret library
+library(caret)
+
+# Prediction on train data (in-sample) and accuracy test 
+logit.reg.train <- predict(forward, newdata = train.df, type = "response")
+confusionMatrix(as.factor(ifelse(logit.reg.train > 0.55, 1, 0)), as.factor(train.df$Outcome))
+
+# Prediction on test data (out of sample)and accuracy test
+logit.reg.test <- predict(forward, newdata = test.df, type = "response")
+confusionMatrix(as.factor(ifelse(logit.reg.test > 0.55, 1, 0)), as.factor(test.df$Outcome))
+
+```
+
+
+```{r}
+#ROC 
+test_prob <- predict(forward, newdata = test.df, type = "response")
 test_roc <- roc(test.df$Outcome ~ test_prob, plot = TRUE, print.auc = TRUE) # 0.774
 ```
 
+
 ```{r, fig.width=3}
-model1_data <- augment(dia.lm.step_for) %>% 
+#Residuals 
+model1_data <- augment(forward) %>% 
   mutate(index = 1:n()) %>%
   mutate(Outcome = ifelse(Outcome == "1", "0", "1"))
 c <- ggplot(model1_data, aes(index, .std.resid, color = Outcome)) + 
   geom_point(stat = "identity") +
-  labs(title = "Standardized Deviance Residuals", y = "Residual Std", x ="Residuals") +
-  theme
+  labs(title = "Standardized Deviance Residuals", y = "Residual Std", x ="Residuals") 
 c
 ```
 
