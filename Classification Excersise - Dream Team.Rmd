@@ -182,7 +182,7 @@ c
 
 # Classification Tree
 
-```{r}
+```{r, message=FALSE}
 set.seed(1)
 library(rpart)
 library(rattle)
