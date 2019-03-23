@@ -16,16 +16,13 @@ library(reshape)
 library(corrplot)
 library(broom)
 library(caret)
-<<<<<<< HEAD
 library(class)
 library(e1071)
-=======
 library(rpart)
 library(rattle)
 library(rpart.plot)
 library(RColorBrewer)
 library(verification)
->>>>>>> 3d0b4cf80b6c4c8675692685b7856fa48c6c848a
 ```
 
 ### I. Data cleaning and impution
@@ -297,57 +294,49 @@ evaluation(tree_i, test.df, "class")
 
 ########################################################################################
 
-### KNN
-
+KNN
 ```{r}
-<<<<<<< HEAD
-set.seed(1)
-randOrder = order(runif(nrow(diabetes)))
-train.df = subset(diabetes,randOrder < .8 * nrow(diabetes))
-test.df = subset(diabetes,randOrder > .8 * nrow(diabetes))
+#diabetes$agebmi <- diabetes$BMI*diabetes$Age
+#diabetes$agebl <- diabetes$BloodPressure*diabetes$Age
+diabetes$agegl <- diabetes$Glucose*diabetes$Age
 
-# add interaction terms
-#train.df$agebmi <- train.df$BMI*train.df$Age
-#train.df$agebl <- train.df$BloodPressure*train.df$Age
-train.df$agegl <- train.df$Glucose*train.df$Age
-
-#test.df$agebmi <- test.df$BMI*test.df$Age
-#test.df$agebl <- test.df$BloodPressure*test.df$Age
-test.df$agegl <- test.df$Glucose*test.df$Age
-
-seg.flg.num <- model.matrix(~., data = train.df)
-=======
-library(class)
-
-# make dummies
 seg.flg.num <- model.matrix(~., data = diabetes)
->>>>>>> 3d0b4cf80b6c4c8675692685b7856fa48c6c848a
 seg.flg.num <- seg.flg.num [,-1]
 
 # scaling the data
 scaled_data <- scale(seg.flg.num)
 scaled_data <- as.data.frame(scaled_data) 
 
+set.seed(1)
 randOrder = order(runif(nrow(scaled_data)))
-train.d = subset(train.df,randOrder < .8 * nrow(scaled_data))
-test.d = subset(train.df,randOrder > .8 * nrow(scaled_data))
+train.df = subset(scaled_data,randOrder < .8 * nrow(scaled_data))
+test.df = subset(scaled_data,randOrder > .8 * nrow(scaled_data))
 
 # initialize a data frame with two columns: k, and accuracy.
 accuracy.df <- data.frame(k = seq(1, 14, 1), accuracy = rep(0, 14))
-test.d$Outcome <- as.factor(test.d$Outcome)
+train.df$Outcome <- as.factor(train.df$Outcome)
+test.df$Outcome <- as.factor(test.df$Outcome)
 
 # compute knn for different k on validation.
 for(i in 1:14) {
-  knn.pred <- knn(train.d,test.d, train.d$Outcome,k = i)
-  accuracy.df[i, 2] <- confusionMatrix(knn.pred, test.d$Outcome)$overall[1]
+  knn.pred <- knn(train.df%>% select(-"Outcome"),test.df %>% select(-"Outcome"), train.df$Outcome,k = i)
+  accuracy.df[i, 2] <- confusionMatrix(knn.pred, test.df$Outcome)$overall[1]
 }
 plot(accuracy.df)   # accuracy is highest when k = 9
-accuracy.df
+#accuracy.df
+
+accuracy.df2 <- data.frame(k = seq(1, 14, 1), accuracy = rep(0, 14))
+for(i in 1:14) {
+  knn.pred <- knn(train.df%>% select(-"Outcome"),train.df %>% select(-"Outcome"), train.df$Outcome,k = i)
+  accuracy.df2[i, 2] <- confusionMatrix(knn.pred, train.df$Outcome)$overall[1]
+}
+#accuracy.df2
+
+accuracy <- cbind(accuracy.df,accuracy.df2)[,c(1,2,4)]
+accuracy$dif <- accuracy$accuracy.1-accuracy$accuracy 
+
+plot(accuracy$dif)
 ```
-
-
-
-
 
 
 
