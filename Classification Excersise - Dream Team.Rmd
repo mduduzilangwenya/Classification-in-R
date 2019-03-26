@@ -34,7 +34,7 @@ diabetes <- read_csv("diabetes.csv")
 ###delete all the missing valuse
 diabetes1 <- diabetes %>%
   filter( Glucose !=0 & BMI != 0 & BloodPressure != 0 & Insulin != 0 & SkinThickness != 0) %>%
-  dplyr::select(Glucose, Insulin, Outcome, BMI, SkinThickness )
+  select(Glucose, Insulin, Outcome, BMI, SkinThickness )
 ```
 
 ##### Fill-in Zero Value
@@ -136,11 +136,12 @@ forward<-step(nothing,list(lower=formula(nothing), upper=formula(fullmod)), dire
 sum_for <- summary(forward) 
 
 # Both Direction Step-wise
-both <- step(fullmod, scope = list(lower=formula(nothing),upper=formula(fullmod)), direction = "both",trace=0)
+both <- step(fullmod, scope = list(lower=formula(nothing),upper=formula(fullmod)), direction="both",trace=0)
 sum_both <- summary(both) 
 
 # best model with aic
 sum_for$aic
+
 
 or <-round(exp(sum_for$coef),4);or
 ```
@@ -196,7 +197,6 @@ Classification tree can grab the information given by a data set and conclude th
 We first tested the accuracy of five basic classification tree models. In all the five models, the diagnostic result is depend on all the other variables in the dataset. The first model uses the default cp value of 0.01, and we change the cp value in the second to the fourth model to 1, 0.1, and 0.001 to check the differences. Moreover, we also set the 'split' of the fifth model into "information" to discover whether it is useful. We used the accuracy and the F-measure to represent the performance of the model. It turns out that the model uses "information" of the data to split the outcome has the best accuracy of 0.7468 and the F-measure 0.8186. The plot below shows the preliminary model we got from previous analysis, and we are going to improve it by pruning it.
 
 First, we calculated the x-val relative error for different cp values. The line plot below shows that the lowest x-val relative error happens on cp=0.13825 and cp=0.18433. This means that with these cp values, the model fit the data best with relatively low overfitting. Then we tested the performance of pruning by cp=0.01, 0.015, and 0.02, and we figured out that cp=0.02 turns out a better performance. The accuracy of the pruned model on test data is 0.7597.
-
 ```{r}
 set.seed(1)
 
