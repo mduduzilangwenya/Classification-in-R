@@ -32,7 +32,7 @@ diabetes <- read_csv("diabetes.csv")
 ###delete all the missing valuse
 diabetes1 <- diabetes %>%
   filter( Glucose !=0 & BMI != 0 & BloodPressure != 0 & Insulin != 0 & SkinThickness != 0) %>%
-  select(Glucose, Insulin, Outcome, BMI, SkinThickness )
+  dplyr::select(Glucose, Insulin, Outcome, BMI, SkinThickness )
 ```
 
 ##### Fill-in Zero Value
@@ -134,12 +134,11 @@ forward<-step(nothing,list(lower=formula(nothing), upper=formula(fullmod)), dire
 sum_for <- summary(forward) 
 
 # Both Direction Step-wise
-both <- step(fullmod, scope = list(lower=formula(nothing),upper=formula(fullmod)), direction="both",trace=0)
+both <- step(fullmod, scope = list(lower=formula(nothing),upper=formula(fullmod)), direction = "both",trace=0)
 sum_both <- summary(both) 
 
 # best model with aic
 sum_for$aic
-
 
 or <-round(exp(sum_for$coef),4);or
 ```
@@ -190,6 +189,12 @@ c
 rm(backwards, both, forward, fullmod, model1_data, nothing, or, sum_back, sum_both, sum_for, test_roc, logit.reg.test, logit.reg.train, pred.1, randOrder, test_prob)
 ```
 
+Classification tree can grab the information given by a data set and conclude the target value from it. Therefore, we don't have to choose the independent variables by our own because the classification tree will automatically select the most suitable variables.
+
+We first tested the accuracy of five basic classification tree models. In all the five models, the diagnostic result is depend on all the other variables in the dataset. The first model uses the default cp value of 0.01, and we change the cp value in the second to the fourth model to 1, 0.1, and 0.001 to check the differences. Moreover, we also set the 'split' of the fifth model into "information" to discover whether it is useful. We used the accuracy and the F-measure to represent the performance of the model. It turns out that the model uses "information" of the data to split the outcome has the best accuracy of 0.7468 and the F-measure 0.8186. The plot below shows the preliminary model we got from previous analysis, and we are going to improve it by pruning it.
+
+First, we calculated the x-val relative error for different cp values. The line plot below shows that the lowest x-val relative error happens on cp=0.13825 and cp=0.18433. This means that with these cp values, the model fit the data best with relatively low overfitting. Then we tested the performance of pruning by cp=0.01, 0.015, and 0.02, and we figured out that cp=0.02 turns out a better performance. The accuracy of the pruned model on test data is 0.7597.
+
 ```{r}
 set.seed(1)
 
@@ -216,7 +221,7 @@ evaluation <- function(model, data, atype) {
 evaluation(tree, test.df, "class")
 evaluation(tree_cp1, test.df, "class")
 evaluation(tree_cp01, test.df, "class")
-evaluation(tree_cp001, test.df, "class")
+evaluation(tree_cp0001, test.df, "class")
 evaluation(tree_i, test.df, "class")
 
 # The model with split="information"
@@ -230,17 +235,18 @@ cp <- tree_i$cptable[tree.best, "CP"]; cp  # get its value
 plotcp(tree_i) # X-val Relative Error
 ```
 
+According to the summary of the model, the importance of different variables in the model are Glucose 41, Age 14, BMI 13, Pregnancies 9, DiabetesPedigreeFunction 9, newInsu 8, and BloodPressure 6. Variables actually used in tree construction are Age, BMI, DiabetesPedigreeFunction, and Glucose. The two parallel plots shows that the R-square of the model continuously increase along the number of splits and the x relative error goes down with more splits.
+
+
 ```{r}
-# Difference between cp 0.01 & 0.01995305
-tree_i_pruned <- prune(tree_i, cp=0.01)
-evaluation(tree_i_pruned, train.df, "class")
-evaluation(tree_i_pruned, test.df, "class")
-tree_i_pruned <- prune(tree_i, cp=0.01995305)
+# Performance under cp value of 0.02
+tree_i_pruned <- prune(tree_i, cp=0.02)
 evaluation(tree_i_pruned, train.df, "class")
 evaluation(tree_i_pruned, test.df, "class")
 
 # Best Classification Tree
-tree_best <- prune(tree_i,cp = 0.01995305) #prune tree
+tree_best <- prune(tree_i,cp = 0.02) #prune tree
+summary(tree_best)
 evaluation(tree_best, test.df, "class")
 rpart.plot(tree_best, extra = 104, nn = TRUE)
 
@@ -267,27 +273,28 @@ confusionMatrix(test.df$Outcome, tree_best.predict)
 roc.plot(test.df$Outcome== "1", tree_best.pred[,2], ylab = "True Positive Rate", xlab = "False Positive Rate")$roc.vol
 ```
 
-### Nothing
-```{r}
-evaluation <- function(model, data, atype) {
-  cat("\nConfusion matrix:\n")
-  prediction = predict(model, data, type=atype)
-  xtab = table(prediction, data$Outcome)
-  print(xtab)
-  cat("\nEvaluation:\n\n")
-  accuracy = sum(prediction == data$Outcome)/length(data$Outcome)
-  precision = xtab[1,1]/sum(xtab[,1])
-  recall = xtab[1,1]/sum(xtab[1,])
-  f = 2 * (precision * recall) / (precision + recall)
-  cat(paste("Accuracy:\t", format(accuracy, digits=4), "\n",sep=" "))
-  cat(paste("Precision:\t", format(precision, digits=4), "\n",sep=" "))
-  cat(paste("Recall:\t\t", format(recall, digits=4), "\n",sep=" "))
-  cat(paste("F-measure:\t", format(f, digits=4), "\n",sep=" "))
-}
+###### Higher-order
 
-evaluation(tree_i, train.df, "class")
-evaluation(tree, test.df, "class")
-evaluation(tree_i, test.df, "class")
+```{r}
+### Model
+tree_higher <- rpart(Outcome ~ Age + Glucose + log(BMI) + DiabetesPedigreeFunction, train.df, method = "class", parms = list(split = "information"), control = rpart.control(cp=0.02))
+evaluation(tree_higher, train.df, "class")
+evaluation(tree_higher, test.df, "class")
+
+### ROC
+par(mfrow=c(1,2)) # two plots on one page 
+
+# Train Data
+tree_higher.predict.in <- predict(tree_higher, train.df, type = "class")
+tree_higher.pred.in <- predict(tree_higher, train.df, type = "prob")
+confusionMatrix(train.df$Outcome, tree_higher.predict.in)
+roc.plot(train.df$Outcome== "1", tree_higher.pred.in[,2], ylab = "True Positive Rate", xlab = "False Positive Rate")$roc.vol
+
+# Test Data
+tree_higher.predict<- predict(tree_higher, test.df, type = "class")
+tree_higher.pred<- predict(tree_higher, test.df, type = "prob")
+confusionMatrix(test.df$Outcome, tree_higher.predict)
+roc.plot(test.df$Outcome== "1", tree_higher.pred[,2], ylab = "True Positive Rate", xlab = "False Positive Rate")$roc.vol
 ```
 
 ########################################################################################
