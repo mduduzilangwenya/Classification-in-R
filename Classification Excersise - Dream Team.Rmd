@@ -1,7 +1,7 @@
 ---
-title: "Regression"
+title: "Classification"
 author: "Ran Dou, Mduduzi Langwenya, Kimo Li, Siyan Lin, Muhammad Furqan Shaikh, Tianyi Zhou"
-date: "03/09/2019"
+date: "03/25/2019"
 output: html_document
 ---
 
@@ -34,7 +34,7 @@ diabetes <- read_csv("diabetes.csv")
 ###delete all the missing valuse
 diabetes1 <- diabetes %>%
   filter( Glucose !=0 & BMI != 0 & BloodPressure != 0 & Insulin != 0 & SkinThickness != 0) %>%
-  select(Glucose, Insulin, Outcome, BMI, SkinThickness )
+  dplyr::select(Glucose, Insulin, Outcome, BMI, SkinThickness )
 ```
 
 ##### Fill-in Zero Value
@@ -326,7 +326,7 @@ test.df$Outcome <- as.factor(test.df$Outcome)
 
 # compute knn for different k on validation.
 for(i in 1:14) {
-  knn.pred <- knn(train.df%>% select(-"Outcome"),test.df %>% select(-"Outcome"), train.df$Outcome,k = i)
+  knn.pred <- knn(train.df%>% dplyr::select(-"Outcome"),test.df %>% dplyr::select(-"Outcome"), train.df$Outcome,k = i)
   accuracy.df[i, 2] <- confusionMatrix(knn.pred, test.df$Outcome)$overall[1]
 }
 plot(accuracy.df)   # accuracy is highest when k = 9
@@ -334,7 +334,7 @@ plot(accuracy.df)   # accuracy is highest when k = 9
 
 accuracy.df2 <- data.frame(k = seq(1, 14, 1), accuracy = rep(0, 14))
 for(i in 1:14) {
-  knn.pred <- knn(train.df%>% select(-"Outcome"),train.df %>% select(-"Outcome"), train.df$Outcome,k = i)
+  knn.pred <- knn(train.df%>% dplyr::select(-"Outcome"),train.df %>% dplyr::select(-"Outcome"), train.df$Outcome,k = i)
   accuracy.df2[i, 2] <- confusionMatrix(knn.pred, train.df$Outcome)$overall[1]
 }
 #accuracy.df2
