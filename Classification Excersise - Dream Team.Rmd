@@ -16,6 +16,8 @@ library(reshape)
 library(corrplot)
 library(broom)
 library(caret)
+library(class)
+library(e1071)
 library(rpart)
 library(rattle)
 library(rpart.plot)
@@ -299,12 +301,12 @@ roc.plot(test.df$Outcome== "1", tree_higher.pred[,2], ylab = "True Positive Rate
 
 ########################################################################################
 
-### KNN
-
+KNN
 ```{r}
-library(class)
+#diabetes$agebmi <- diabetes$BMI*diabetes$Age
+#diabetes$agebl <- diabetes$BloodPressure*diabetes$Age
+diabetes$agegl <- diabetes$Glucose*diabetes$Age
 
-# make dummies
 seg.flg.num <- model.matrix(~., data = diabetes)
 seg.flg.num <- seg.flg.num [,-1]
 
@@ -312,25 +314,36 @@ seg.flg.num <- seg.flg.num [,-1]
 scaled_data <- scale(seg.flg.num)
 scaled_data <- as.data.frame(scaled_data) 
 
+set.seed(1)
 randOrder = order(runif(nrow(scaled_data)))
-train.df = subset(diabetes,randOrder < .8 * nrow(scaled_data))
-test.df = subset(diabetes,randOrder > .8 * nrow(scaled_data))
+train.df = subset(scaled_data,randOrder < .8 * nrow(scaled_data))
+test.df = subset(scaled_data,randOrder > .8 * nrow(scaled_data))
 
 # initialize a data frame with two columns: k, and accuracy.
 accuracy.df <- data.frame(k = seq(1, 14, 1), accuracy = rep(0, 14))
+train.df$Outcome <- as.factor(train.df$Outcome)
 test.df$Outcome <- as.factor(test.df$Outcome)
 
 # compute knn for different k on validation.
 for(i in 1:14) {
-  knn.pred <- knn(train.df,test.df, train.df$Outcome,k = i)
+  knn.pred <- knn(train.df%>% select(-"Outcome"),test.df %>% select(-"Outcome"), train.df$Outcome,k = i)
   accuracy.df[i, 2] <- confusionMatrix(knn.pred, test.df$Outcome)$overall[1]
 }
-accuracy.df
+plot(accuracy.df)   # accuracy is highest when k = 9
+#accuracy.df
+
+accuracy.df2 <- data.frame(k = seq(1, 14, 1), accuracy = rep(0, 14))
+for(i in 1:14) {
+  knn.pred <- knn(train.df%>% select(-"Outcome"),train.df %>% select(-"Outcome"), train.df$Outcome,k = i)
+  accuracy.df2[i, 2] <- confusionMatrix(knn.pred, train.df$Outcome)$overall[1]
+}
+#accuracy.df2
+
+accuracy <- cbind(accuracy.df,accuracy.df2)[,c(1,2,4)]
+accuracy$dif <- accuracy$accuracy.1-accuracy$accuracy 
+
+plot(accuracy$dif)
 ```
-
-
-
-
 
 
 
